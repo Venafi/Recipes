@@ -1,3 +1,5 @@
+As of June 1, 2026 this project is deprecated and will no longer be maintained.”
+
 ## Venafi TLS Protect Cloud Automation Recipes
 
 **Purpose:**
