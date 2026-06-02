@@ -36,19 +36,28 @@
      A variable that stores the path to the .csv file that contains the Cloud Provider and Cloud Keysore data.
 .NOTES
     Executin example
-    ./CreateCP-KS.ps1 -ApiUrl "https://api.venafi.cloud/graphql" -TPPLApiKey "3c9e4ca1-7b6c-4c2c-8bec-f955b6fc5a9c" -CsvPath "./data.csv"
+    WARNING: Do not pass the API key on the command line. Use the TPPL_API_KEY environment variable.
+    $env:TPPL_API_KEY = "3c9e4ca1-7b6c-4c2c-8bec-f955b6fc5a9c"; ./CreateCP-KS.ps1 -ApiUrl "https://api.venafi.cloud/graphql" -CsvPath "./data.csv"
     Multivalue parameters in the CSV are separated by ';'
 ##################################################################################################>
 
 param(
     [string]$ApiUrl,
-    [string]$TPPLApiKey,
     [string]$CsvPath
 )
 
+# SECURITY (CWE-214): The tenant API key MUST be supplied via the TPPL_API_KEY
+# environment variable, not on the command line. argv is visible to other local
+# users (process listing), persisted to PSReadLine history, and captured in CI logs.
+$TPPLApiKey = $env:TPPL_API_KEY
+
 # Check if required parameters are provided
-if (-not $ApiUrl -or -not $TPPLApiKey -or -not $CsvPath) {
-    Write-Host "Please provide: -ApiUrl <Api_Url> -TPPLApiKey <API_KEY> -CsvPath <CSV_Path>"
+if (-not $ApiUrl -or -not $CsvPath) {
+    Write-Host "Please provide: -ApiUrl <Api_Url> -CsvPath <CSV_Path>"
+    exit 1
+}
+if (-not $TPPLApiKey) {
+    Write-Host "TPPL_API_KEY environment variable is not set. Set it before running this script (do not pass the API key on the command line)."
     exit 1
 }
 

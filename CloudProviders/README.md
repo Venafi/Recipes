@@ -19,12 +19,14 @@ None
 
 ## Usage
 
-1. Update the script with your API URL and API key.
+1. Set the TPPL_API_KEY environment variable with your Venafi API key (do not pass it on the command line).
 2. Prepare a CSV file with the required configuration data (see CSV format below).
 3. Run the script with the following parameters:
 
    ```powershell
-   ./CreateCP-KS.ps1 -ApiUrl "https://api.venafi.cloud/graphql" -TPPLApiKey "your_api_key" -CsvPath "path/to/your/data.csv"
+   $env:TPPL_API_KEY = "your_api_key"
+   ./CreateCP-KS.ps1 -ApiUrl "https://api.venafi.cloud/graphql" -CsvPath "path/to/your/data.csv"
+   ```
 so there would not be mistakes with the API URL
    
 
