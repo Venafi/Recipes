@@ -85,14 +85,21 @@ if __name__ == "__main__":
         # Create a CSV writer object
         csv_writer = csv.writer(csv_file)
 
+        # SECURITY (CWE-1236): neutralise spreadsheet formula leaders so values
+        # originating from certificate attributes cannot execute as formulas
+        # when the CSV is opened in Excel/LibreOffice.
+        def defuse(v):
+            s = str(v)
+            return "'" + s if s[:1] in ('=', '+', '-', '@', '\t', '\r') else s
+
         # Write header
         if cert_ids:
             header = cert_ids[0].keys()
-            csv_writer.writerow(header)
+            csv_writer.writerow([defuse(key) for key in header])
 
             # Write data rows
             for row in cert_ids:
-                csv_writer.writerow([row.get(key, '') for key in header])
+                csv_writer.writerow([defuse(row.get(key, '')) for key in header])
 
 
     # Print some information
