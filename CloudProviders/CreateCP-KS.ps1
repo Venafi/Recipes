@@ -91,20 +91,36 @@ function CheckIfCPExists([string] $cloudProviderName) {
 }
 
 function CreateCloudProviderMutation ([string] $cloudProviderName, [string] $teamId, [string] $authorizedTeamId, [string] $cloudProviderType, [string] $awsRole, [string] $awsAccountId) {
-   
 
-    if (-not [string]::IsNullOrEmpty($authorizedTeamId)) {
-        $authTeams = "`"$authorizedTeamId`""
+    # Validate UUID format for teamId
+    $uuidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    if ($teamId -notmatch $uuidPattern) {
+        Write-Host "Invalid teamId format: '$teamId'. Must be a valid UUID."
+        return
     }
-    # GraphQL mutation with dynamic parameters
-    $mutation = @"
-mutation Mutation {
+
+    # Validate cloudProviderType against allowlist
+    $validTypes = @('AWS', 'AZURE', 'GCP')
+    if ($cloudProviderType -notin $validTypes) {
+        Write-Host "Invalid cloudProviderType: '$cloudProviderType'. Must be one of: $($validTypes -join ', ')"
+        return
+    }
+
+    # Build authorizedTeams array for variables
+    $authTeamsArray = @()
+    if (-not [string]::IsNullOrEmpty($authorizedTeamId)) {
+        $authTeamsArray = @($authorizedTeamId)
+    }
+
+    # GraphQL mutation with variables (literal here-string)
+    $mutation = @'
+mutation Mutation($cloudProviderName: String!, $teamId: ID!, $authorizedTeams: [ID!], $cloudProviderType: CloudProviderType!, $awsRole: String!, $awsAccountId: String!) {
   createCloudProvider(
     input: {
-      authorizedTeams: [$authTeams]
-      awsConfiguration: { role: "$awsRole", accountId: "$awsAccountId" }
-      name: "$cloudProviderName"
-      teamId: "$teamId"
+      authorizedTeams: $authorizedTeams
+      awsConfiguration: { role: $awsRole, accountId: $awsAccountId }
+      name: $cloudProviderName
+      teamId: $teamId
       type: $cloudProviderType
     }
   ) {
@@ -112,12 +128,20 @@ mutation Mutation {
     id
   }
 }
-"@
+'@
 
-    # Create the GraphQL request body
+    # Create the GraphQL request body with variables
     $body = @{
         query = $mutation
-    } | ConvertTo-Json
+        variables = @{
+            cloudProviderName = $cloudProviderName
+            teamId = $teamId
+            authorizedTeams = $authTeamsArray
+            cloudProviderType = $cloudProviderType
+            awsRole = $awsRole
+            awsAccountId = $awsAccountId
+        }
+    } | ConvertTo-Json -Depth 10
 
     # Make the GraphQL API call
     try {
@@ -135,21 +159,35 @@ mutation Mutation {
 
 function CreateCloudKeystoreForACM([string] $cloudKeystoreName, [string] $teamId, [string] $authorizedTeamId, [string] $cloudProviderId, [string[]] $acmRegions) {
 
+    # Validate UUID format for teamId and cloudProviderId
+    $uuidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    if ($teamId -notmatch $uuidPattern) {
+        Write-Host "Invalid teamId format: '$teamId'. Must be a valid UUID."
+        return
+    }
+    if ($cloudProviderId -notmatch $uuidPattern) {
+        Write-Host "Invalid cloudProviderId format: '$cloudProviderId'. Must be a valid UUID."
+        return
+    }
+
+    # Build authorizedTeams array for variables
+    $authTeamsArray = @()
     if (-not [string]::IsNullOrEmpty($authorizedTeamId)) {
-        $authTeams = "`"$authorizedTeamId`""
+        $authTeamsArray = @($authorizedTeamId)
     }
 
     foreach ($region in $acmRegions) {
-    
-        $mutation = @"
-    mutation CreateCloudKeystore {
+
+        # GraphQL mutation with variables (literal here-string)
+        $mutation = @'
+    mutation CreateCloudKeystore($name: String!, $teamId: ID!, $cloudProviderId: ID!, $region: String!, $authorizedTeams: [ID!]) {
         createCloudKeystore(
           input: {
-            name: "$cloudKeystoreName-$region"
-            teamId: "$teamId"
-            cloudProviderId: "$cloudProviderId"
-            acmConfiguration: { region: "$region" }
-            authorizedTeams: [$authTeams]
+            name: $name
+            teamId: $teamId
+            cloudProviderId: $cloudProviderId
+            acmConfiguration: { region: $region }
+            authorizedTeams: $authorizedTeams
             type: ACM
           }
         ) {
@@ -157,11 +195,18 @@ function CreateCloudKeystoreForACM([string] $cloudKeystoreName, [string] $teamId
           name
         }
     }
-"@
-        # Create the GraphQL request body
+'@
+        # Create the GraphQL request body with variables
         $body = @{
             query = $mutation
-        } | ConvertTo-Json
+            variables = @{
+                name = "$cloudKeystoreName-$region"
+                teamId = $teamId
+                cloudProviderId = $cloudProviderId
+                region = $region
+                authorizedTeams = $authTeamsArray
+            }
+        } | ConvertTo-Json -Depth 10
 
         # Make the GraphQL API call
         try {
